@@ -15,7 +15,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -27,6 +27,7 @@ import java.util.Set;
  * 2. Extracts user information from the token
  * 3. Forwards user info to downstream services via headers
  * 4. Allows public endpoints to bypass authentication
+ * 5. Handles CORS preflight (OPTIONS) requests
  */
 @Component
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
@@ -37,6 +38,13 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     private static final String USER_EMAIL_HEADER = "X-User-Email";
     private static final String USER_TYPE_HEADER = "X-User-Type";
     private static final String USER_NAME_HEADER = "X-User-Name";
+    
+    // Allowed CORS origins
+    private static final Set<String> ALLOWED_ORIGINS = new HashSet<>(Arrays.asList(
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000"
+    ));
 
     private final JwtUtils jwtUtils;
 
@@ -76,6 +84,14 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
+            String method = request.getMethod().name();
+            String origin = request.getHeaders().getFirst(HttpHeaders.ORIGIN);
+
+            // Handle OPTIONS preflight requests
+            if ("OPTIONS".equals(method)) {
+                logger.debug("OPTIONS preflight request for path: {}, origin: {}", path, origin);
+                return handleCors(exchange, origin);
+            }
 
             // Skip authentication for public endpoints
             if (isPublicEndpoint(path)) {
@@ -136,6 +152,26 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 return onError(exchange, "Token validation failed: " + e.getMessage(), HttpStatus.UNAUTHORIZED);
             }
         };
+    }
+
+    /**
+     * Handle CORS for OPTIONS preflight requests
+     */
+    private Mono<Void> handleCors(ServerWebExchange exchange, String origin) {
+        ServerHttpResponse response = exchange.getResponse();
+        
+        // Add CORS headers
+        if (origin != null && ALLOWED_ORIGINS.contains(origin)) {
+            response.getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+            response.getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+            response.getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+            response.getHeaders().add(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+            response.getHeaders().add(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "3600");
+            response.getHeaders().add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "Authorization, X-User-Id, X-User-Email");
+        }
+        
+        response.setStatusCode(HttpStatus.OK);
+        return response.setComplete();
     }
 
     /**

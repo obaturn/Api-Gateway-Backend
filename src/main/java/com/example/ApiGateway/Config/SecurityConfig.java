@@ -6,12 +6,15 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
+import org.springframework.http.HttpMethod;
+
 /**
  * Security Configuration for API Gateway
  * 
  * Configures:
  * - CSRF disabled (using JWT tokens)
  * - Public endpoints access
+ * - OPTIONS requests allowed
  * - Authentication requirements for protected endpoints
  */
 @Configuration
@@ -29,6 +32,9 @@ public class SecurityConfig {
             
             // Configure authorization rules
             .authorizeExchange(exchanges -> exchanges
+                // Allow all OPTIONS requests (CORS preflight)
+                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
                 // Public endpoints - no authentication required
                 .pathMatchers("/api/v1/auth/login").permitAll()
                 .pathMatchers("/api/v1/auth/register").permitAll()
