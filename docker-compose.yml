@@ -1,0 +1,45 @@
+services:
+  # =====================
+  # API Gateway Service Only
+  # =====================
+  # Note: Infrastructure services (Kafka, Zookeeper, Postgres, MongoDB, Zipkin)
+  # are managed by Authentication-Service-JobHub/docker-compose.yml
+  # All services connect to the same shared infrastructure
+
+  api-gateway:
+    build: .
+    container_name: jobhub-api-gateway
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - JWT_SECRET=${JWT_SECRET:-your-256-bit-secret-key-for-jwt-signing-must-be-at-least-256-bits-long}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+      # Connect to shared Kafka (from Authentication-Service docker-compose)
+      # Using port 29092 for internal container communication as configured in Auth service
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      # Connect to shared Zipkin (from Authentication-Service docker-compose)
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - jobhub-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# =====================
+# Networks
+# =====================
+networks:
+  jobhub-network:
+    external: true
+
+# =====================
+# Volumes
+# =====================
+volumes:
+  postgres_auth_data:
+  postgres_application_data:
+  mongodb_notification_data:

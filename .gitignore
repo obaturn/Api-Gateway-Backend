@@ -1,0 +1,23 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+.classpath
+.project
+.settings
+.idea
+*.iml
+.DS_Store
+.env
+
+# Ignore application configuration files
+src/main/resources/application.properties
+src/main/resources/application.yml
+src/main/resources/keystore.jks
+src/main/resources/keystore.properties
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
