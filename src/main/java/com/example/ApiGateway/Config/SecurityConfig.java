@@ -53,8 +53,8 @@ public class SecurityConfig {
                 // Error endpoint
                 .pathMatchers("/error").permitAll()
                 
-                // All other endpoints require authentication
-                .anyExchange().authenticated()
+                // All other endpoints - JwtAuthenticationFilter will handle JWT validation
+                .anyExchange().permitAll()
             )
             
             // Disable basic authentication
